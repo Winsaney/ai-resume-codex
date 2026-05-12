@@ -1,0 +1,715 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>PDF Resume Parser - MinerU API Demo</title>
+  <style>
+    :root {
+      --bg: #fafaf9;
+      --card: #ffffff;
+      --border: #e7e5e4;
+      --border-focus: #d97706;
+      --accent: #d97706;
+      --accent-hover: #b45309;
+      --accent-light: #fef3c7;
+      --text: #1c1917;
+      --text-secondary: #78716c;
+      --success: #16a34a;
+      --error: #dc2626;
+      --radius: 12px;
+    }
+
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 40px 20px;
+    }
+
+    .container {
+      width: 100%;
+      max-width: 800px;
+    }
+
+    header {
+      margin-bottom: 32px;
+      text-align: center;
+    }
+
+    header h1 {
+      font-size: 24px;
+      font-weight: 700;
+      margin-bottom: 8px;
+    }
+
+    header p {
+      color: var(--text-secondary);
+      font-size: 14px;
+    }
+
+    .card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 24px;
+      margin-bottom: 20px;
+    }
+
+    /* Drop Zone */
+    .drop-zone {
+      border: 2px dashed var(--border);
+      border-radius: var(--radius);
+      padding: 48px 24px;
+      text-align: center;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      position: relative;
+    }
+
+    .drop-zone:hover,
+    .drop-zone.drag-over {
+      border-color: var(--accent);
+      background: var(--accent-light);
+    }
+
+    .drop-zone-icon {
+      font-size: 40px;
+      margin-bottom: 12px;
+    }
+
+    .drop-zone-title {
+      font-size: 16px;
+      font-weight: 600;
+      margin-bottom: 4px;
+    }
+
+    .drop-zone-hint {
+      font-size: 13px;
+      color: var(--text-secondary);
+    }
+
+    .drop-zone input[type="file"] {
+      display: none;
+    }
+
+    /* File Info */
+    .file-info {
+      display: none;
+      align-items: center;
+      gap: 12px;
+      padding: 12px 16px;
+      background: var(--accent-light);
+      border-radius: 8px;
+      margin-top: 16px;
+    }
+
+    .file-info.visible {
+      display: flex;
+    }
+
+    .file-info-name {
+      flex: 1;
+      font-size: 14px;
+      font-weight: 500;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .file-info-size {
+      font-size: 12px;
+      color: var(--text-secondary);
+      flex-shrink: 0;
+    }
+
+    .file-info-remove {
+      cursor: pointer;
+      color: var(--text-secondary);
+      font-size: 18px;
+      line-height: 1;
+      padding: 2px;
+    }
+
+    .file-info-remove:hover {
+      color: var(--error);
+    }
+
+    /* Options */
+    .options {
+      display: flex;
+      gap: 16px;
+      flex-wrap: wrap;
+      margin-top: 16px;
+    }
+
+    .option-group {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .option-group label {
+      font-size: 13px;
+      color: var(--text-secondary);
+    }
+
+    .option-group select {
+      padding: 6px 10px;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      font-size: 13px;
+      background: var(--card);
+      cursor: pointer;
+    }
+
+    .option-group select:focus {
+      outline: none;
+      border-color: var(--border-focus);
+    }
+
+    /* Button */
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      padding: 12px 24px;
+      border: none;
+      border-radius: 8px;
+      font-size: 14px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.15s ease;
+      width: 100%;
+      margin-top: 16px;
+    }
+
+    .btn-primary {
+      background: var(--accent);
+      color: white;
+    }
+
+    .btn-primary:hover:not(:disabled) {
+      background: var(--accent-hover);
+    }
+
+    .btn-primary:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+
+    /* Progress */
+    .progress-bar-wrapper {
+      display: none;
+      margin-top: 16px;
+    }
+
+    .progress-bar-wrapper.visible {
+      display: block;
+    }
+
+    .progress-status {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 8px;
+    }
+
+    .progress-label {
+      font-size: 13px;
+      color: var(--text-secondary);
+    }
+
+    .progress-state {
+      font-size: 12px;
+      padding: 2px 8px;
+      border-radius: 4px;
+      background: var(--accent-light);
+      color: var(--accent);
+      font-weight: 500;
+    }
+
+    .progress-track {
+      height: 6px;
+      background: var(--border);
+      border-radius: 3px;
+      overflow: hidden;
+    }
+
+    .progress-fill {
+      height: 100%;
+      background: var(--accent);
+      border-radius: 3px;
+      transition: width 0.4s ease;
+      width: 0%;
+    }
+
+    .progress-fill.indeterminate {
+      width: 30%;
+      animation: indeterminate 1.5s ease-in-out infinite;
+    }
+
+    @keyframes indeterminate {
+      0% { margin-left: 0%; }
+      50% { margin-left: 70%; }
+      100% { margin-left: 0%; }
+    }
+
+    /* Result */
+    .result-section {
+      display: none;
+    }
+
+    .result-section.visible {
+      display: block;
+    }
+
+    .result-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 12px;
+    }
+
+    .result-header h3 {
+      font-size: 15px;
+      font-weight: 600;
+    }
+
+    .result-meta {
+      display: flex;
+      gap: 12px;
+      font-size: 12px;
+      color: var(--text-secondary);
+    }
+
+    .result-textarea {
+      width: 100%;
+      min-height: 360px;
+      max-height: 70vh;
+      padding: 16px;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      font-family: 'Georgia', 'Times New Roman', serif;
+      font-size: 14px;
+      line-height: 1.7;
+      resize: vertical;
+      background: var(--bg);
+    }
+
+    .result-textarea:focus {
+      outline: none;
+      border-color: var(--border-focus);
+    }
+
+    .btn-copy {
+      padding: 6px 14px;
+      font-size: 12px;
+      font-weight: 500;
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      cursor: pointer;
+      transition: all 0.15s ease;
+    }
+
+    .btn-copy:hover {
+      border-color: var(--accent);
+      color: var(--accent);
+    }
+
+    /* Log */
+    .log-section {
+      margin-top: 20px;
+    }
+
+    .log-toggle {
+      font-size: 13px;
+      color: var(--text-secondary);
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      user-select: none;
+    }
+
+    .log-toggle:hover {
+      color: var(--text);
+    }
+
+    .log-content {
+      display: none;
+      margin-top: 8px;
+      padding: 12px;
+      background: #1c1917;
+      border-radius: 8px;
+      font-family: 'SF Mono', 'Menlo', monospace;
+      font-size: 12px;
+      line-height: 1.6;
+      color: #a8a29e;
+      max-height: 200px;
+      overflow-y: auto;
+    }
+
+    .log-content.visible {
+      display: block;
+    }
+
+    .log-content .log-ok { color: #4ade80; }
+    .log-content .log-err { color: #f87171; }
+    .log-content .log-info { color: #fbbf24; }
+    .log-content .log-time { color: #78716c; }
+
+    /* Error */
+    .error-banner {
+      display: none;
+      padding: 12px 16px;
+      background: #fef2f2;
+      border: 1px solid #fecaca;
+      border-radius: 8px;
+      color: var(--error);
+      font-size: 13px;
+      margin-top: 12px;
+    }
+
+    .error-banner.visible {
+      display: block;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <header>
+      <h1>PDF Resume Parser</h1>
+      <p>Powered by MinerU Agent API — no login required, free, IP rate-limited</p>
+    </header>
+
+    <!-- Upload Card -->
+    <div class="card">
+      <div class="drop-zone" id="dropZone">
+        <div class="drop-zone-icon">📄</div>
+        <div class="drop-zone-title">Drop PDF here, or click to select</div>
+        <div class="drop-zone-hint">Supports PDF, DOCX, PPTX, XLSX, Images — Max 10MB, 20 pages</div>
+        <input type="file" id="fileInput"
+          accept=".pdf,.docx,.pptx,.xlsx,.png,.jpg,.jpeg">
+      </div>
+
+      <div class="file-info" id="fileInfo">
+        <span class="file-info-name" id="fileName"></span>
+        <span class="file-info-size" id="fileSize"></span>
+        <span class="file-info-remove" id="fileRemove">&times;</span>
+      </div>
+
+      <div class="options">
+        <div class="option-group">
+          <label>Language</label>
+          <select id="optLang">
+            <option value="ch" selected>Chinese + English</option>
+            <option value="en">English</option>
+            <option value="japan">Japanese</option>
+            <option value="korean">Korean</option>
+            <option value="latin">Latin (FR/DE/ES...)</option>
+          </select>
+        </div>
+        <div class="option-group">
+          <label>OCR</label>
+          <select id="optOcr">
+            <option value="false" selected>Off (text PDF)</option>
+            <option value="true">On (scanned PDF)</option>
+          </select>
+        </div>
+        <div class="option-group">
+          <label>Tables</label>
+          <select id="optTable">
+            <option value="true" selected>Enabled</option>
+            <option value="false">Disabled</option>
+          </select>
+        </div>
+      </div>
+
+      <button class="btn btn-primary" id="btnParse" disabled>
+        Parse Resume
+      </button>
+
+      <div class="error-banner" id="errorBanner"></div>
+
+      <div class="progress-bar-wrapper" id="progressWrapper">
+        <div class="progress-status">
+          <span class="progress-label" id="progressLabel">Uploading...</span>
+          <span class="progress-state" id="progressState">uploading</span>
+        </div>
+        <div class="progress-track">
+          <div class="progress-fill indeterminate" id="progressFill"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Result Card -->
+    <div class="result-section card" id="resultSection">
+      <div class="result-header">
+        <h3>Parsed Result (Markdown)</h3>
+        <div class="result-meta">
+          <span id="charCount">0 chars</span>
+          <button class="btn-copy" id="btnCopy">Copy</button>
+        </div>
+      </div>
+      <textarea class="result-textarea" id="resultText" placeholder="Parsed content will appear here..."></textarea>
+    </div>
+
+    <!-- API Log -->
+    <div class="log-section">
+      <span class="log-toggle" id="logToggle">
+        <span id="logArrow">&#9654;</span> API Log
+      </span>
+      <div class="log-content" id="logContent"></div>
+    </div>
+  </div>
+
+<script>
+const $ = id => document.getElementById(id);
+
+// State
+let selectedFile = null;
+
+// DOM
+const dropZone = $('dropZone');
+const fileInput = $('fileInput');
+const fileInfo = $('fileInfo');
+const fileName = $('fileName');
+const fileSize = $('fileSize');
+const fileRemove = $('fileRemove');
+const btnParse = $('btnParse');
+const errorBanner = $('errorBanner');
+const progressWrapper = $('progressWrapper');
+const progressLabel = $('progressLabel');
+const progressState = $('progressState');
+const progressFill = $('progressFill');
+const resultSection = $('resultSection');
+const resultText = $('resultText');
+const charCount = $('charCount');
+const btnCopy = $('btnCopy');
+const logToggle = $('logToggle');
+const logContent = $('logContent');
+const logArrow = $('logArrow');
+
+// Drop zone events
+dropZone.addEventListener('click', () => fileInput.click());
+dropZone.addEventListener('dragover', e => { e.preventDefault(); dropZone.classList.add('drag-over'); });
+dropZone.addEventListener('dragleave', () => dropZone.classList.remove('drag-over'));
+dropZone.addEventListener('drop', e => {
+  e.preventDefault();
+  dropZone.classList.remove('drag-over');
+  if (e.dataTransfer.files.length) handleFile(e.dataTransfer.files[0]);
+});
+fileInput.addEventListener('change', e => {
+  if (e.target.files.length) handleFile(e.target.files[0]);
+});
+fileRemove.addEventListener('click', () => {
+  selectedFile = null;
+  fileInfo.classList.remove('visible');
+  btnParse.disabled = true;
+  fileInput.value = '';
+});
+
+function handleFile(file) {
+  const validExts = ['.pdf','.docx','.pptx','.xlsx','.png','.jpg','.jpeg','.gif','.bmp','.webp'];
+  const ext = '.' + file.name.split('.').pop().toLowerCase();
+  if (!validExts.includes(ext)) {
+    showError(`Unsupported format: ${ext}`);
+    return;
+  }
+  if (file.size > 10 * 1024 * 1024) {
+    showError('File exceeds 10MB limit');
+    return;
+  }
+  selectedFile = file;
+  fileName.textContent = file.name;
+  fileSize.textContent = formatSize(file.size);
+  fileInfo.classList.add('visible');
+  btnParse.disabled = false;
+  hideError();
+}
+
+function formatSize(bytes) {
+  if (bytes < 1024) return bytes + ' B';
+  if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
+  return (bytes / 1024 / 1024).toFixed(1) + ' MB';
+}
+
+function showError(msg) {
+  errorBanner.textContent = msg;
+  errorBanner.classList.add('visible');
+}
+function hideError() {
+  errorBanner.classList.remove('visible');
+}
+
+// Log
+let logs = [];
+function log(msg, type = '') {
+  const ts = new Date().toLocaleTimeString();
+  logs.push({ ts, msg, type });
+  const html = logs.map(l =>
+    `<div><span class="log-time">[${l.ts}]</span> <span class="log-${l.type}">${l.msg}</span></div>`
+  ).join('\n');
+  logContent.innerHTML = html;
+  logContent.scrollTop = logContent.scrollHeight;
+}
+
+logToggle.addEventListener('click', () => {
+  const visible = logContent.classList.toggle('visible');
+  logArrow.innerHTML = visible ? '&#9660;' : '&#9654;';
+});
+
+// Copy
+btnCopy.addEventListener('click', () => {
+  navigator.clipboard.writeText(resultText.value);
+  btnCopy.textContent = 'Copied!';
+  setTimeout(() => btnCopy.textContent = 'Copy', 1500);
+});
+
+resultText.addEventListener('input', () => {
+  charCount.textContent = resultText.value.length + ' chars';
+});
+
+// Progress UI helpers
+function showProgress(label, state) {
+  progressLabel.textContent = label;
+  progressState.textContent = state;
+  progressWrapper.classList.add('visible');
+  progressFill.classList.add('indeterminate');
+}
+function hideProgress() {
+  progressWrapper.classList.remove('visible');
+  progressFill.classList.remove('indeterminate');
+}
+
+// --- MinerU Agent API ---
+const BASE = 'https://mineru.net/api/v1/agent';
+
+btnParse.addEventListener('click', async () => {
+  if (!selectedFile) return;
+
+  logs = [];
+  logContent.innerHTML = '';
+  hideError();
+  resultSection.classList.remove('visible');
+  btnParse.disabled = true;
+
+  const language = $('optLang').value;
+  const isOcr = $('optOcr').value === 'true';
+  const enableTable = $('optTable').value === 'true';
+
+  try {
+    // Step 1: Get signed upload URL
+    showProgress('Requesting upload URL...', 'uploading');
+    log('POST /parse/file — getting signed upload URL...', 'info');
+
+    const body = {
+      file_name: selectedFile.name,
+      language,
+      is_ocr: isOcr,
+      enable_table: enableTable,
+      enable_formula: false,
+    };
+
+    log(`Request body: ${JSON.stringify(body)}`, '');
+
+    const res1 = await fetch(`${BASE}/parse/file`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    });
+
+    const data1 = await res1.json();
+    log(`Response: code=${data1.code}, task_id=${data1.data?.task_id}`, data1.code === 0 ? 'ok' : 'err');
+
+    if (data1.code !== 0) throw new Error(`API error: ${data1.msg}`);
+
+    const { task_id, file_url } = data1.data;
+
+    // Step 2: Upload file to OSS
+    showProgress('Uploading file...', 'uploading');
+    log(`PUT file to OSS (${formatSize(selectedFile.size)})...`, 'info');
+
+    const res2 = await fetch(file_url, {
+      method: 'PUT',
+      body: selectedFile,
+    });
+
+    if (!res2.ok) throw new Error(`Upload failed: HTTP ${res2.status}`);
+    log(`Upload complete: HTTP ${res2.status}`, 'ok');
+
+    // Step 3: Poll for result
+    showProgress('Parsing document...', 'running');
+    log('Polling for parse result...', 'info');
+
+    const stateLabels = {
+      'waiting-file': 'Waiting for file',
+      'uploading': 'Downloading',
+      'pending': 'Queued',
+      'running': 'Parsing',
+      'done': 'Done',
+      'failed': 'Failed',
+    };
+
+    const maxAttempts = 60;
+    const interval = 3000;
+    let markdownUrl = null;
+
+    for (let i = 0; i < maxAttempts; i++) {
+      await sleep(interval);
+
+      const res3 = await fetch(`${BASE}/parse/${task_id}`);
+      const data3 = await res3.json();
+      const state = data3.data.state;
+
+      progressState.textContent = stateLabels[state] || state;
+      log(`[${i + 1}/${maxAttempts}] state: ${state}`, state === 'failed' ? 'err' : 'info');
+
+      if (state === 'done') {
+        markdownUrl = data3.data.markdown_url;
+        break;
+      }
+      if (state === 'failed') {
+        throw new Error(data3.data.err_msg || `Parse failed (code: ${data3.data.err_code})`);
+      }
+    }
+
+    if (!markdownUrl) throw new Error('Polling timed out (3 min)');
+
+    // Step 4: Fetch markdown content
+    showProgress('Fetching result...', 'done');
+    log(`GET markdown: ${markdownUrl}`, 'info');
+
+    const res4 = await fetch(markdownUrl);
+    const mdText = await res4.text();
+    log(`Got ${mdText.length} chars of markdown`, 'ok');
+
+    // Show result
+    hideProgress();
+    resultText.value = mdText;
+    charCount.textContent = mdText.length + ' chars';
+    resultSection.classList.add('visible');
+    log('Done!', 'ok');
+
+  } catch (err) {
+    hideProgress();
+    showError(err.message);
+    log(`Error: ${err.message}`, 'err');
+  } finally {
+    btnParse.disabled = false;
+  }
+});
+
+function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
+</script>
+</body>
+</html>
