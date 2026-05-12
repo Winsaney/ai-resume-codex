@@ -26,16 +26,16 @@
 ### 环境要求
 
 - Node.js >= 18
-- npm 或 pnpm
+- pnpm
 
 ### 安装与运行
 
 ```bash
 # 安装依赖
-npm install
+pnpm install
 
 # 启动开发服务器
-npm run dev
+pnpm dev
 ```
 
 打开 http://localhost:3000 即可使用。
@@ -87,7 +87,7 @@ src/
 ## 其他命令
 
 ```bash
-npm run build    # 生产构建
-npm run start    # 启动生产服务
-npm run lint     # ESLint 检查
+pnpm build    # 生产构建
+pnpm start    # 启动生产服务
+pnpm lint     # ESLint 检查
 ```
