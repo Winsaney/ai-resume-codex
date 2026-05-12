@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import Link from "next/link";
 import ReactMarkdown from "react-markdown";
 import { useCompletion } from "@ai-sdk/react";
@@ -23,16 +23,24 @@ import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { useLanguage } from "@/lib/i18n/LanguageContext";
 import { useSettings } from "@/lib/SettingsContext";
+import { useHistory } from "@/lib/HistoryContext";
 import { LanguageSwitcher } from "@/components/LanguageSwitcher";
+import { HistoryButton } from "@/components/HistoryButton";
 import { SettingsButton } from "@/components/SettingsModal";
 
 export default function DashboardPage() {
   const { language, t } = useLanguage();
   const { config, setIsSettingsOpen } = useSettings();
-  
+  const { addRecord, restoreRecord, clearRestoreRecord } = useHistory();
+
   const [resume, setResume] = useState("");
   const [jd, setJd] = useState("");
   const [copied, setCopied] = useState(false);
+  const prevLoadingRef = useRef(true);
+  const resumeRef = useRef(resume);
+  const jdRef = useRef(jd);
+  resumeRef.current = resume;
+  jdRef.current = jd;
 
   const [isParsing, setIsParsing] = useState(false);
   const [parseError, setParseError] = useState<string | null>(null);
@@ -53,6 +61,37 @@ export default function DashboardPage() {
       }
     }
   });
+
+  // Auto-save on completion
+  useEffect(() => {
+    if (prevLoadingRef.current && !isLoading && completion?.trim()) {
+      const currentResume = resumeRef.current;
+      const currentJd = jdRef.current;
+      addRecord({
+        id: crypto.randomUUID(),
+        createdAt: Date.now(),
+        label: '',
+        resumeText: currentResume,
+        resumePreview: currentResume.slice(0, 200),
+        jdText: currentJd,
+        jdPreview: currentJd.slice(0, 200),
+        result: completion,
+        model: config.model,
+        language,
+      });
+    }
+    prevLoadingRef.current = isLoading;
+  }, [isLoading, completion]);
+
+  // Restore from history
+  useEffect(() => {
+    if (restoreRecord) {
+      setResume(restoreRecord.resumeText);
+      setJd(restoreRecord.jdText);
+      setCompletion(restoreRecord.result);
+      clearRestoreRecord();
+    }
+  }, [restoreRecord]);
 
   const handleOptimize = async () => {
     if (!resume.trim() || !jd.trim()) return;
@@ -155,6 +194,7 @@ export default function DashboardPage() {
         </div>
 
         <div className="flex items-center gap-2">
+          <HistoryButton />
           <SettingsButton />
           <LanguageSwitcher />
           {completion && (
