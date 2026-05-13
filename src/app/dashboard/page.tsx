@@ -23,6 +23,7 @@ import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { useLanguage } from "@/lib/i18n/LanguageContext";
 import { useSettings } from "@/lib/SettingsContext";
+import { getActiveProvider } from "@/lib/providers";
 import { useHistory } from "@/lib/HistoryContext";
 import { LanguageSwitcher } from "@/components/LanguageSwitcher";
 import { HistoryButton } from "@/components/HistoryButton";
@@ -30,7 +31,8 @@ import { SettingsButton } from "@/components/SettingsModal";
 
 export default function DashboardPage() {
   const { language, t } = useLanguage();
-  const { config, setIsSettingsOpen } = useSettings();
+  const { settings, setIsSettingsOpen } = useSettings();
+  const activeProvider = getActiveProvider(settings);
   const { addRecord, restoreRecord, clearRestoreRecord } = useHistory();
 
   const [resume, setResume] = useState("");
@@ -76,7 +78,7 @@ export default function DashboardPage() {
         jdText: currentJd,
         jdPreview: currentJd.slice(0, 200),
         result: completion,
-        model: config.model,
+        model: activeProvider.model,
         language,
       });
     }
@@ -96,20 +98,19 @@ export default function DashboardPage() {
   const handleOptimize = async () => {
     if (!resume.trim() || !jd.trim()) return;
     
-    if (!config.apiKey) {
+    if (!activeProvider.credentials.apiKey) {
       setIsSettingsOpen(true);
       return;
     }
-    
-    // Pass everything required via the request body overlay
+
     await complete('', {
       body: {
         resume,
         jd,
-        apiKey: config.apiKey,
-        baseUrl: config.baseUrl,
-        model: config.model,
-        language
+        ...activeProvider.credentials,
+        model: activeProvider.model,
+        providerId: activeProvider.providerId,
+        language,
       }
     });
   };
@@ -377,7 +378,7 @@ export default function DashboardPage() {
               )}
               
               {/* API Configuration Hint */}
-              {!config.apiKey && !isLoading && !completion && (
+              {!activeProvider.credentials.apiKey && !isLoading && !completion && (
                  <div className="text-center py-6 text-sm text-brand-orange/80">
                    {language === 'en' ? 'Click Settings (Gear Icon) to configure your API key.' : '请点击右上角设置图标配置 API Key'}
                  </div>

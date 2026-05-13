@@ -1,71 +1,52 @@
 export const runtime = 'edge';
 
-/**
- * Builds the full endpoint URL correctly regardless of whether the user
- * included a trailing slash or the /chat/completions segment.
- */
-function buildEndpointUrl(baseUrl: string): string {
-  let url = baseUrl.trim();
-  // Remove any accidental /chat/completions the user may have pasted
-  if (url.endsWith('/chat/completions')) {
-    url = url.slice(0, -'/chat/completions'.length);
-  }
-  // Remove trailing slash so we can safely append
-  if (url.endsWith('/')) {
-    url = url.slice(0, -1);
-  }
-  return `${url}/chat/completions`;
-}
+import { getProviderById, getEffectiveBaseUrl } from '@/lib/providers';
+import { buildEndpoint, parseErrorResponse, buildRequestHeaders, buildRequestBody } from '@/lib/api-client';
 
 export async function POST(req: Request) {
   try {
-    const { apiKey, baseUrl, model } = await req.json();
+    const { apiKey, baseUrl = '', model, providerId = 'openai' } = await req.json();
 
     if (!apiKey) {
       return new Response(
         JSON.stringify({ success: false, error: 'API Key is required.' }),
-        { status: 400, headers: { 'Content-Type': 'application/json' } }
+        { status: 400, headers: { 'Content-Type': 'application/json' } },
       );
     }
 
-    const endpoint = buildEndpointUrl(baseUrl || 'https://api.openai.com/v1');
+    const provider = getProviderById(providerId);
+    const apiFormat = provider?.apiFormat || 'openai';
+    const effectiveBaseUrl = getEffectiveBaseUrl(provider!, { baseUrl, apiKey });
+    const endpoint = buildEndpoint(apiFormat, effectiveBaseUrl);
 
     const response = await fetch(endpoint, {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${apiKey}`,
-      },
-      body: JSON.stringify({
-        model: model || 'gpt-3.5-turbo',
-        messages: [{ role: 'user', content: 'Hi' }],
-        max_tokens: 5,
+      headers: buildRequestHeaders(apiFormat, apiKey),
+      body: JSON.stringify(buildRequestBody(apiFormat, {
+        model: model || provider?.models[0]?.id || 'gpt-4o',
+        systemPrompt: '',
+        userContent: 'Hi',
         stream: false,
-      }),
+        maxTokens: 5,
+      })),
     });
 
     if (!response.ok) {
-      const errText = await response.text();
-      let errMsg = `HTTP ${response.status}`;
-      try {
-        const errJson = JSON.parse(errText);
-        errMsg = errJson?.error?.message || errJson?.message || errMsg;
-      } catch {}
+      const errMsg = await parseErrorResponse(response);
       return new Response(
         JSON.stringify({ success: false, error: errMsg }),
-        { status: 200, headers: { 'Content-Type': 'application/json' } }
+        { status: 200, headers: { 'Content-Type': 'application/json' } },
       );
     }
 
     return new Response(
       JSON.stringify({ success: true, message: 'Connection successful', endpoint }),
-      { status: 200, headers: { 'Content-Type': 'application/json' } }
+      { status: 200, headers: { 'Content-Type': 'application/json' } },
     );
-
   } catch (error: any) {
     return new Response(
       JSON.stringify({ success: false, error: error.message || 'Connection failed' }),
-      { status: 200, headers: { 'Content-Type': 'application/json' } }
+      { status: 200, headers: { 'Content-Type': 'application/json' } },
     );
   }
 }
